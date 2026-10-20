@@ -47,6 +47,8 @@
 <section class="quiz-tools" aria-label="Тестирование">
 <label for="studentName" style="display:block;width:100%;font-weight:650">ФИО участника</label>
 <input class="student-name" id="studentName" type="text" maxlength="120" autocomplete="name" placeholder="Введите фамилию, имя и отчество" required>
+<label for="quizCountSelect" style="display:block;width:100%;font-weight:650;margin:2px 0 6px">Количество вопросов</label>
+<select id="quizCountSelect" style="max-width:520px;margin-bottom:10px"><option value="30">30 вопросов</option><option value="60" selected>60 вопросов</option><option value="100">100 вопросов</option><option value="all">Все вопросы</option></select>
 <button class="action-btn primary" id="startQuizBtn">Пройти тест — 60 вопросов</button>
 <button class="action-btn" id="showHistoryBtn">История результатов</button>
 <a class="action-btn" href="./mobile.html" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">📱 Мобильная версия</a>
@@ -138,8 +140,10 @@ function startQuiz(){
  if(!fullName){alert('Перед началом теста введите ФИО.');$('studentName').focus();return;}
  $('studentName').value=fullName;
  var pool=DB.filter(function(q){return q.correct&&q.options&&Object.keys(q.options).length>1;});
- if(pool.length<QUIZ_COUNT){alert('В базе меньше 60 вопросов с ответами.');return;}
- var picked=shuffleArray(pool.slice()).slice(0,QUIZ_COUNT);
+ var selectedCount=$('quizCountSelect').value;
+ var desiredCount=selectedCount==='all'?pool.length:parseInt(selectedCount,10);
+ if(pool.length<desiredCount){alert('В базе доступно только '+pool.length+' вопросов с ответами.');return;}
+ var picked=shuffleArray(pool.slice()).slice(0,desiredCount);
  quizRun={fullName:fullName,startedAt:new Date().toISOString(),questions:picked.map(function(q){return {id:q.id,category:q.category,source:q.source,num:q.num,question:q.question,options:q.options,correct:q.correct,answer:q.answer||q.options[q.correct]||'',selected:null};})};
  quizCurrent=0;
  $('quizPanel').hidden=false;$('quizResultPanel').hidden=true;$('historyPanel').hidden=true;
@@ -237,7 +241,7 @@ function downloadAttemptCSV(a){
  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='test_otvt_'+a.id+'.csv';document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(url);
 }
 function initQuizUI(){
- $('startQuizBtn').onclick=startQuiz;$('showHistoryBtn').onclick=showHistory;$('closeHistoryBtn').onclick=function(){$('historyPanel').hidden=true;};
+ $('startQuizBtn').onclick=startQuiz;$('quizCountSelect').onchange=function(){$('startQuizBtn').textContent='Пройти тест — '+(this.value==='all'?'все вопросы':this.value+' вопросов');};$('showHistoryBtn').onclick=showHistory;$('closeHistoryBtn').onclick=function(){$('historyPanel').hidden=true;};
  $('quizPrevBtn').onclick=function(){if(quizCurrent>0){quizCurrent--;renderQuizQuestion();}};
  $('quizNextBtn').onclick=function(){if(quizCurrent<quizRun.questions.length-1){quizCurrent++;renderQuizQuestion();}};
  $('quizFinishBtn').onclick=function(){var unanswered=quizRun.questions.filter(function(q){return q.selected===null;}).length;if(unanswered&&!confirm('Остались без ответа '+unanswered+' вопросов. Завершить тест?'))return;finishQuiz();};
