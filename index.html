@@ -42,7 +42,7 @@
 .history-lock input{width:100%;padding:12px;border-radius:10px;border:1px solid #31425d;background:#0b1424;color:var(--text);font:inherit;margin:8px 0}
 .history-lock p{color:var(--muted)}
 </style></head><body><section class="password-gate" id="passwordGate"><form class="password-card" id="passwordForm"><div class="password-logo">✓</div><h1>Доступ к тестам</h1><p>Введите пароль, чтобы открыть сайт</p><input id="sitePassword" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Пароль" required autofocus><button type="submit">Войти</button><div class="password-error" id="passwordError" role="alert"></div></form></section><main id="siteContent" class="wrap" style="display:none"><header class="hero"><div class="logo">✓</div><div><h1>Поиск правильных ответов</h1><p>Поиск по вашим тестам · пожарная безопасность · БиОТ · электробезопасность</p></div><div class="stats" id="totalBadge">Загрузка базы…</div></header>
-<section class="searchbox"><div class="searchrow"><input id="query" type="search" placeholder="Введите вопрос или ключевые слова…" autocomplete="off"><button class="clear" id="clearBtn">Очистить</button></div><div class="filters"><select id="category"><option value="">Все разделы</option></select><select id="sort"><option value="relevance">Сначала совпадения</option><option value="number">По номеру вопроса</option></select></div><div class="quick"><button class="chip" data-q="охранная зона">Охранная зона</button><button class="chip" data-q="инструктаж">Инструктаж</button><button class="chip" data-q="наряд-допуск">Наряд-допуск</button><button class="chip" data-q="пожар">Пожар</button><button class="chip" data-q="электробезопасность">Электробезопасность</button></div><label class="onlyanswer"><input id="answeredOnly" type="checkbox"> Показывать только вопросы с найденным правильным ответом</label><p class="hint">Можно искать по части вопроса, варианту ответа или номеру. Нажмите на вариант, чтобы увидеть правильный ответ.</p></section>
+<section class="searchbox"><div class="searchrow"><input id="query" type="search" placeholder="Введите вопрос или ключевые слова…" autocomplete="off"><button class="clear" id="clearBtn">Очистить</button></div><div class="filters"><select id="category"><option value="">Все разделы</option></select><select id="sort"><option value="relevance">Сначала совпадения</option><option value="number">По номеру вопроса</option></select></div><div class="quick"><button class="chip" data-q="охранная зона">Охранная зона</button><button class="chip" data-q="инструктаж">Инструктаж</button><button class="chip" data-q="наряд-допуск">Наряд-допуск</button><button class="chip" data-q="пожар">Пожар</button><button class="chip" data-q="электробезопасность">Электробезопасность</button></div><label class="onlyanswer"><input id="answeredOnly" type="checkbox"> Искать только вопросы с правильным ответом</label><p class="hint">Можно искать по части вопроса, варианту ответа или номеру. Нажмите на вариант, чтобы увидеть правильный ответ.</p></section>
 
 <section class="quiz-tools" aria-label="Тестирование">
 <label for="studentName" style="display:block;width:100%;font-weight:650">ФИО участника</label>
@@ -83,19 +83,37 @@ var $=function(id){return document.getElementById(id);};
 function normalize(s){return String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-яёәіңғүұқөһ0-9]+/gi,' ').replace(/^\\s+|\\s+$/g,'');}
 function escapeHTML(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function score(item,terms){
+ if(!item.correct)return 0;
  var question=normalize(item.question);
- var hay=normalize([item.question,item.answer,item.source].concat(Object.keys(item.options).map(function(k){return item.options[k];})).join(' '));
+ var answerText=normalize([item.answer].concat(Object.keys(item.options||{}).map(function(k){return item.options[k];})).join(' '));
+ var searchable=normalize(question+' '+answerText);
  var n=0;
- for(var i=0;i<terms.length;i++){var t=terms[i];if(!t)continue;var inQuestion=question.indexOf(t)!==-1;var inHay=hay.indexOf(t)!==-1;if(inQuestion)n+=8+t.length;else if(inHay)n+=3+t.length;else{var words=hay.split(' ');for(var j=0;j<words.length;j++){if(words[j].indexOf(t)===0||t.indexOf(words[j])===0){n+=1;break;}}}}
+ for(var i=0;i<terms.length;i++){
+  var t=terms[i];if(!t)continue;
+  if(searchable.indexOf(t)===-1)return 0;
+  if(question.indexOf(t)!==-1)n+=12+t.length;
+  else n+=2+t.length;
+ }
  return n;
 }
 function render(){
- var query=normalize($('query').value),terms=query?query.split(' '):[],arr=[];
- for(var i=0;i<DB.length;i++){var x=DB[i];if($('category').value&&x.category!==$('category').value)continue;if($('answeredOnly').checked&&!x.correct)continue;var sc=terms.length?score(x,terms):0;if(!terms.length||sc>0){var copy={};for(var k in x)if(Object.prototype.hasOwnProperty.call(x,k))copy[k]=x[k];copy._score=sc;arr.push(copy);}}
+ var query=normalize($('query').value),terms=query?query.split(' ').filter(function(t){return t.length>1;}):[],arr=[];
+ var results=$('results');
+ if(!terms.length){
+  $('resultCount').textContent='Введите запрос';
+  results.innerHTML='<div class="empty">Введите вопрос или ключевые слова — покажу только подходящие вопросы с определённым правильным ответом.</div>';
+  return;
+ }
+ for(var i=0;i<DB.length;i++){
+  var x=DB[i];
+  if(!x.correct)continue;
+  if($('category').value&&x.category!==$('category').value)continue;
+  var sc=score(x,terms);
+  if(sc>0){var copy={};for(var k in x)if(Object.prototype.hasOwnProperty.call(x,k))copy[k]=x[k];copy._score=sc;arr.push(copy);}
+ }
  if($('sort').value==='number')arr.sort(function(a,b){return a.num-b.num;});else arr.sort(function(a,b){return (b._score||0)-(a._score||0);});
  $('resultCount').textContent='Найдено: '+arr.length;
- var results=$('results');
- if(!arr.length){results.innerHTML='<div class="empty">Ничего не найдено.<br><br>Попробуйте сократить запрос или выбрать другой раздел.</div>';return;}
+ if(!arr.length){results.innerHTML='<div class="empty">Подходящих вопросов с определённым правильным ответом не найдено.<br><br>Попробуйте оставить 2–3 ключевых слова или выбрать другой раздел.</div>';return;}
  var out='';
  for(var n=0;n<Math.min(arr.length,150);n++){
   var x=arr[n],opts=Object.keys(x.options),optionHtml='';
