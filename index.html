@@ -26,7 +26,16 @@
 .review-answer.good{border-color:#258b6c;background:#10372f}
 .review-answer.bad{border-color:#9b4553;background:#351c27}
 @media(max-width:600px){.quiz-panel,.history-panel{padding:13px}.quiz-question{font-size:17px}.quiz-top{align-items:flex-start;flex-direction:column}}
-</style></head><body><main class="wrap"><header class="hero"><div class="logo">✓</div><div><h1>Поиск правильных ответов</h1><p>Поиск по вашим тестам · пожарная безопасность · БиОТ · электробезопасность</p></div><div class="stats" id="totalBadge">Загрузка базы…</div></header>
+
+.password-gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(ellipse at top,#182946 0,#0b1220 65%)}
+.password-card{width:min(100%,420px);padding:28px;background:#121d30;border:1px solid #2a3a54;border-radius:22px;box-shadow:0 18px 60px #0005;text-align:center}
+.password-logo{width:58px;height:58px;margin:0 auto 16px;display:grid;place-items:center;border-radius:18px;background:linear-gradient(135deg,#63e6be,#8bb4ff);color:#081321;font-size:26px;font-weight:900}
+.password-card h1{font-size:25px;margin:0 0 8px}.password-card p{color:#9fb0ca;margin:0 0 20px}
+.password-card input{width:100%;padding:14px 15px;border-radius:12px;border:1px solid #31425d;background:#0b1424;color:#eef4ff;font-size:16px;outline:none}
+.password-card input:focus{border-color:#63e6be;box-shadow:0 0 0 3px #63e6be18}
+.password-card button{width:100%;margin-top:12px;padding:14px;border:0;border-radius:12px;background:#63e6be;color:#081321;font-weight:800;font-size:16px;cursor:pointer}
+.password-error{min-height:22px;margin-top:10px;color:#ff8794;font-size:13px}
+</style></head><body><section class="password-gate" id="passwordGate"><form class="password-card" id="passwordForm"><div class="password-logo">✓</div><h1>Доступ к тестам</h1><p>Введите пароль, чтобы открыть сайт</p><input id="sitePassword" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Пароль" required autofocus><button type="submit">Войти</button><div class="password-error" id="passwordError" role="alert"></div></form></section><main id="siteContent" class="wrap" style="display:none"><header class="hero"><div class="logo">✓</div><div><h1>Поиск правильных ответов</h1><p>Поиск по вашим тестам · пожарная безопасность · БиОТ · электробезопасность</p></div><div class="stats" id="totalBadge">Загрузка базы…</div></header>
 <section class="searchbox"><div class="searchrow"><input id="query" type="search" placeholder="Введите вопрос или ключевые слова…" autocomplete="off"><button class="clear" id="clearBtn">Очистить</button></div><div class="filters"><select id="category"><option value="">Все разделы</option></select><select id="sort"><option value="relevance">Сначала совпадения</option><option value="number">По номеру вопроса</option></select></div><div class="quick"><button class="chip" data-q="охранная зона">Охранная зона</button><button class="chip" data-q="инструктаж">Инструктаж</button><button class="chip" data-q="наряд-допуск">Наряд-допуск</button><button class="chip" data-q="пожар">Пожар</button><button class="chip" data-q="электробезопасность">Электробезопасность</button></div><label class="onlyanswer"><input id="answeredOnly" type="checkbox"> Показывать только вопросы с найденным правильным ответом</label><p class="hint">Можно искать по части вопроса, варианту ответа или номеру. Нажмите на вариант, чтобы увидеть правильный ответ.</p></section>
 
 <section class="quiz-tools" aria-label="Тестирование">
@@ -195,4 +204,25 @@ function init(){
  render();
 }
 if(window.addEventListener)window.addEventListener('load',init);else window.onload=init;
+</script>
+<script>
+(function(){
+  var PASS_HASH='b92b16560bd5cf4923380cd1b076e5a47b05899f43ebdb834d1825cc56ca0aab';
+  var gate=document.getElementById('passwordGate'),site=document.getElementById('siteContent'),form=document.getElementById('passwordForm'),field=document.getElementById('sitePassword'),err=document.getElementById('passwordError');
+  function unlock(){gate.style.display='none';site.style.display='block';}
+  if(sessionStorage.getItem('testOtvtAccess')==='1'){unlock();}
+  form.onsubmit=function(e){
+    if(e&&e.preventDefault)e.preventDefault();
+    var value=field.value||'';
+    if(window.crypto&&window.crypto.subtle&&window.TextEncoder){
+      window.crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)).then(function(buf){
+        var bytes=new Uint8Array(buf),hex='';
+        for(var i=0;i<bytes.length;i++)hex+=bytes[i].toString(16).padStart(2,'0');
+        if(hex===PASS_HASH){sessionStorage.setItem('testOtvtAccess','1');err.textContent='';unlock();}
+        else{err.textContent='Неверный пароль. Попробуйте ещё раз.';field.value='';field.focus();}
+      }).catch(function(){err.textContent='Не удалось проверить пароль. Откройте сайт по HTTPS.';});
+    }else{err.textContent='Для входа откройте сайт в современном браузере по HTTPS.';}
+    return false;
+  };
+})();
 </script></body></html>
