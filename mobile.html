@@ -97,7 +97,7 @@
  .quiz-nav>div{grid-template-columns:1fr}
  #quizExitBtn{grid-column:auto}
 }
-</style></head><body><main id="siteContent" class="wrap"><header class="hero"><div class="logo">✓</div><div><h1>Поиск правильных ответов</h1><p>Поиск по вашим тестам · пожарная безопасность · БиОТ · электробезопасность</p></div><div class="stats" id="totalBadge">Загрузка базы…</div></header>
+</style></head><body><section class="password-gate" id="passwordGate"><form class="password-card" id="passwordForm"><div class="password-logo">✓</div><h1>Доступ к тестам</h1><p>Введите пароль, чтобы открыть сайт</p><input id="sitePassword" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Пароль" required autofocus><button type="submit">Войти</button><div class="password-error" id="passwordError" role="alert"></div></form></section><main id="siteContent" class="wrap" style="display:none"><header class="hero"><div class="logo">✓</div><div><h1>Поиск правильных ответов</h1><p>Поиск по вашим тестам · пожарная безопасность · БиОТ · электробезопасность</p></div><div class="stats" id="totalBadge">Загрузка базы…</div></header>
 <section class="searchbox"><div class="searchrow"><input id="query" type="search" placeholder="Введите вопрос или ключевые слова…" autocomplete="off"><button class="clear" id="clearBtn">Очистить</button></div><div class="filters"><select id="category"><option value="">Все разделы</option></select><select id="sort"><option value="relevance">Сначала совпадения</option><option value="number">По номеру вопроса</option></select></div><div class="quick"><button class="chip" data-q="охранная зона">Охранная зона</button><button class="chip" data-q="инструктаж">Инструктаж</button><button class="chip" data-q="наряд-допуск">Наряд-допуск</button><button class="chip" data-q="пожар">Пожар</button><button class="chip" data-q="электробезопасность">Электробезопасность</button></div><label class="onlyanswer"><input id="answeredOnly" type="checkbox"> Искать только вопросы с правильным ответом</label><p class="hint">Можно искать по части вопроса, варианту ответа или номеру. Нажмите на вариант, чтобы увидеть правильный ответ.</p></section>
 
 <section class="quiz-tools" aria-label="Тестирование">
@@ -318,4 +318,24 @@ function init(){
 }
 if(window.addEventListener)window.addEventListener('load',init);else window.onload=init;
 </script>
-</body></html>
+<script>
+(function(){
+  var PASS_HASH='b92b16560bd5cf4923380cd1b076e5a47b05899f43ebdb834d1825cc56ca0aab';
+  var gate=document.getElementById('passwordGate'),site=document.getElementById('siteContent'),form=document.getElementById('passwordForm'),field=document.getElementById('sitePassword'),err=document.getElementById('passwordError');
+  function unlock(){gate.style.display='none';site.style.display='block';}
+  if(sessionStorage.getItem('testOtvtAccess')==='1'){unlock();}
+  form.onsubmit=function(e){
+    if(e&&e.preventDefault)e.preventDefault();
+    var value=field.value||'';
+    if(window.crypto&&window.crypto.subtle&&window.TextEncoder){
+      window.crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)).then(function(buf){
+        var bytes=new Uint8Array(buf),hex='';
+        for(var i=0;i<bytes.length;i++)hex+=bytes[i].toString(16).padStart(2,'0');
+        if(hex===PASS_HASH){sessionStorage.setItem('testOtvtAccess','1');err.textContent='';unlock();}
+        else{err.textContent='Неверный пароль. Попробуйте ещё раз.';field.value='';field.focus();}
+      }).catch(function(){err.textContent='Не удалось проверить пароль. Откройте сайт по HTTPS.';});
+    }else{err.textContent='Для входа откройте сайт в современном браузере по HTTPS.';}
+    return false;
+  };
+})();
+</script></body></html>
