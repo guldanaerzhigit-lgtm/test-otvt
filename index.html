@@ -35,10 +35,18 @@
 .password-card input:focus{border-color:#63e6be;box-shadow:0 0 0 3px #63e6be18}
 .password-card button{width:100%;margin-top:12px;padding:14px;border:0;border-radius:12px;background:#63e6be;color:#081321;font-weight:800;font-size:16px;cursor:pointer}
 .password-error{min-height:22px;margin-top:10px;color:#ff8794;font-size:13px}
+
+.student-name{width:100%;max-width:520px;padding:12px 14px;border-radius:12px;border:1px solid #31425d;background:#0b1424;color:var(--text);font:inherit;margin:0 0 10px}
+.student-name:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px #63e6be18}
+.history-lock{max-width:480px;margin:16px auto;padding:22px;background:var(--panel);border:1px solid var(--line);border-radius:16px}
+.history-lock input{width:100%;padding:12px;border-radius:10px;border:1px solid #31425d;background:#0b1424;color:var(--text);font:inherit;margin:8px 0}
+.history-lock p{color:var(--muted)}
 </style></head><body><section class="password-gate" id="passwordGate"><form class="password-card" id="passwordForm"><div class="password-logo">✓</div><h1>Доступ к тестам</h1><p>Введите пароль, чтобы открыть сайт</p><input id="sitePassword" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Пароль" required autofocus><button type="submit">Войти</button><div class="password-error" id="passwordError" role="alert"></div></form></section><main id="siteContent" class="wrap" style="display:none"><header class="hero"><div class="logo">✓</div><div><h1>Поиск правильных ответов</h1><p>Поиск по вашим тестам · пожарная безопасность · БиОТ · электробезопасность</p></div><div class="stats" id="totalBadge">Загрузка базы…</div></header>
 <section class="searchbox"><div class="searchrow"><input id="query" type="search" placeholder="Введите вопрос или ключевые слова…" autocomplete="off"><button class="clear" id="clearBtn">Очистить</button></div><div class="filters"><select id="category"><option value="">Все разделы</option></select><select id="sort"><option value="relevance">Сначала совпадения</option><option value="number">По номеру вопроса</option></select></div><div class="quick"><button class="chip" data-q="охранная зона">Охранная зона</button><button class="chip" data-q="инструктаж">Инструктаж</button><button class="chip" data-q="наряд-допуск">Наряд-допуск</button><button class="chip" data-q="пожар">Пожар</button><button class="chip" data-q="электробезопасность">Электробезопасность</button></div><label class="onlyanswer"><input id="answeredOnly" type="checkbox"> Показывать только вопросы с найденным правильным ответом</label><p class="hint">Можно искать по части вопроса, варианту ответа или номеру. Нажмите на вариант, чтобы увидеть правильный ответ.</p></section>
 
 <section class="quiz-tools" aria-label="Тестирование">
+<label for="studentName" style="display:block;width:100%;font-weight:650">ФИО участника</label>
+<input class="student-name" id="studentName" type="text" maxlength="120" autocomplete="name" placeholder="Введите фамилию, имя и отчество" required>
 <button class="action-btn primary" id="startQuizBtn">Пройти тест — 60 вопросов</button>
 <button class="action-btn" id="showHistoryBtn">История результатов</button>
 </section>
@@ -106,10 +114,13 @@ function shuffleArray(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.ran
 function getQuizHistory(){try{return JSON.parse(localStorage.getItem(QUIZ_STORAGE_KEY)||'[]');}catch(e){return [];}}
 function setQuizHistory(h){try{localStorage.setItem(QUIZ_STORAGE_KEY,JSON.stringify(h));}catch(e){alert('Не удалось сохранить историю. Освободите место в браузере и попробуйте снова.');}}
 function startQuiz(){
+ var fullName=($('studentName').value||'').replace(/\\s+/g,' ').trim();
+ if(!fullName){alert('Перед началом теста введите ФИО.');$('studentName').focus();return;}
+ $('studentName').value=fullName;
  var pool=DB.filter(function(q){return q.correct&&q.options&&Object.keys(q.options).length>1;});
  if(pool.length<QUIZ_COUNT){alert('В базе меньше 60 вопросов с ответами.');return;}
  var picked=shuffleArray(pool.slice()).slice(0,QUIZ_COUNT);
- quizRun={startedAt:new Date().toISOString(),questions:picked.map(function(q){return {id:q.id,category:q.category,source:q.source,num:q.num,question:q.question,options:q.options,correct:q.correct,answer:q.answer||q.options[q.correct]||'',selected:null};})};
+ quizRun={fullName:fullName,startedAt:new Date().toISOString(),questions:picked.map(function(q){return {id:q.id,category:q.category,source:q.source,num:q.num,question:q.question,options:q.options,correct:q.correct,answer:q.answer||q.options[q.correct]||'',selected:null};})};
  quizCurrent=0;
  $('quizPanel').hidden=false;$('quizResultPanel').hidden=true;$('historyPanel').hidden=true;
  $('searchbox');
@@ -138,7 +149,7 @@ function finishQuiz(){
  if(!quizRun)return;
  var total=quizRun.questions.length,answered=0,correct=0;
  var review=quizRun.questions.map(function(q){if(q.selected!==null)answered++;var ok=q.selected===q.correct;if(ok)correct++;return {id:q.id,category:q.category,source:q.source,num:q.num,question:q.question,options:q.options,selected:q.selected,correct:q.correct,answer:q.answer,isCorrect:ok};});
- var attempt={id:'attempt-'+new Date().getTime(),date:new Date().toLocaleString('ru-RU'),startedAt:quizRun.startedAt,finishedAt:new Date().toISOString(),total:total,answered:answered,correct:correct,percent:Math.round(correct/total*100),questions:review};
+ var attempt={id:'attempt-'+new Date().getTime(),fullName:quizRun.fullName||'',date:new Date().toLocaleString('ru-RU'),startedAt:quizRun.startedAt,finishedAt:new Date().toISOString(),total:total,answered:answered,correct:correct,percent:Math.round(correct/total*100),questions:review};
  var hist=getQuizHistory();hist.push(attempt);setQuizHistory(hist);
  try{localStorage.removeItem('testOtvtQuizDraftV1');}catch(e){}
  quizRun=null;$('quizPanel').hidden=true;$('quizResultPanel').hidden=false;
@@ -149,17 +160,39 @@ function finishQuiz(){
  $('newQuizBtn').onclick=startQuiz;
  $('quizResultPanel').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function showHistory(){
- $('historyPanel').hidden=false;$('quizPanel').hidden=true;$('quizResultPanel').hidden=true;
+function renderHistoryUnlocked(){
  var hist=getQuizHistory(),out='';
  if(!hist.length)out='<p class="quiz-note">Пока нет сохранённых попыток.</p>';
  else{
   hist.slice().reverse().forEach(function(a){
-   out+='<article class="history-item"><h3>'+escapeHTML(a.date)+' — '+a.correct+'/'+a.total+' ('+a.percent+'%)</h3><p>Ответов дано: '+a.answered+'/'+a.total+'</p><div class="quiz-tools"><button class="action-btn primary" data-review="'+escapeHTML(a.id)+'">Посмотреть ответы</button><button class="action-btn" data-download="'+escapeHTML(a.id)+'">Скачать CSV</button><button class="action-btn" data-delete="'+escapeHTML(a.id)+'">Удалить</button></div></article>';
+   out+='<article class="history-item"><h3>'+escapeHTML(a.fullName||'ФИО не указано')+'</h3><p>'+escapeHTML(a.date)+' — <b>'+a.correct+'/'+a.total+' ('+a.percent+'%)</b></p><p>Ответов дано: '+a.answered+'/'+a.total+'</p><div class="quiz-tools"><button class="action-btn primary" data-review="'+escapeHTML(a.id)+'">Посмотреть ответы</button><button class="action-btn" data-download="'+escapeHTML(a.id)+'">Скачать CSV</button><button class="action-btn" data-delete="'+escapeHTML(a.id)+'">Удалить</button></div></article>';
   });
  }
  $('historyContent').innerHTML=out;
- $('historyContent').onclick=function(e){e=e||window.event;var t=e.target||e.srcElement;var id=t.getAttribute('data-review')||t.getAttribute('data-download')||t.getAttribute('data-delete');if(!id)return;var a=getQuizHistory().filter(function(x){return x.id===id;})[0];if(!a)return;if(t.getAttribute('data-review'))showAttempt(id);else if(t.getAttribute('data-download'))downloadAttemptCSV(a);else if(t.getAttribute('data-delete')&&confirm('Удалить эту попытку из истории?')){setQuizHistory(getQuizHistory().filter(function(x){return x.id!==id;}));showHistory();}};
+ $('historyContent').onclick=function(e){e=e||window.event;var t=e.target||e.srcElement;var id=t.getAttribute('data-review')||t.getAttribute('data-download')||t.getAttribute('data-delete');if(!id)return;var a=getQuizHistory().filter(function(x){return x.id===id;})[0];if(!a)return;if(t.getAttribute('data-review'))showAttempt(id);else if(t.getAttribute('data-download'))downloadAttemptCSV(a);else if(t.getAttribute('data-delete')&&confirm('Удалить эту попытку из истории?')){setQuizHistory(getQuizHistory().filter(function(x){return x.id!==id;}));renderHistoryUnlocked();}};
+}
+function showHistory(){
+ $('historyPanel').hidden=false;$('quizPanel').hidden=true;$('quizResultPanel').hidden=true;
+ if(sessionStorage.getItem('testOtvtHistoryUnlocked')==='1'){
+  $('historyContent').innerHTML='<p class="quiz-note">История результатов</p>';
+  renderHistoryUnlocked();
+ }else{
+  $('historyContent').innerHTML='<form class="history-lock" id="historyPasswordForm"><h3>Доступ к истории результатов</h3><p>Введите пароль, чтобы просмотреть результаты и ответы участников.</p><input id="historyPassword" type="password" autocomplete="current-password" placeholder="Пароль" required><button class="action-btn primary" type="submit">Открыть историю</button><p id="historyPasswordError" role="alert"></p></form>';
+  $('historyPasswordForm').onsubmit=function(e){
+   if(e&&e.preventDefault)e.preventDefault();
+   var value=$('historyPassword').value||'';
+   if(window.crypto&&window.crypto.subtle&&window.TextEncoder){
+    window.crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)).then(function(buf){
+     var bytes=new Uint8Array(buf),hex='';
+     for(var i=0;i<bytes.length;i++)hex+=bytes[i].toString(16).padStart(2,'0');
+     if(hex==='4a6420086ff4ca064ff62a27fce859f61769f9b06221dccc64961119c97b458d'){
+      sessionStorage.setItem('testOtvtHistoryUnlocked','1');renderHistoryUnlocked();
+     }else{$('historyPasswordError').textContent='Неверный пароль. Попробуйте ещё раз.';$('historyPassword').value='';$('historyPassword').focus();}
+    }).catch(function(){$('historyPasswordError').textContent='Не удалось проверить пароль. Откройте сайт по HTTPS.';});
+   }else{$('historyPasswordError').textContent='Откройте сайт в современном браузере по HTTPS.';}
+   return false;
+  };
+ }
  $('historyPanel').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function showAttempt(id){
@@ -178,7 +211,7 @@ function showAttempt(id){
  $('quizResultPanel').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function downloadAttemptCSV(a){
- var rows=[['Дата',a.date],['Результат',a.correct+'/'+a.total],['Процент',a.percent+'%'],[],['№','Вопрос','Твой ответ','Правильный ответ','Результат','Категория']];
+ var rows=[['ФИО',a.fullName||''],['Дата',a.date],['Результат',a.correct+'/'+a.total],['Процент',a.percent+'%'],[],['№','Вопрос','Твой ответ','Правильный ответ','Результат','Категория']];
  a.questions.forEach(function(q,i){rows.push([i+1,q.question,q.selected===null?'Нет ответа':q.selected+') '+(q.options[q.selected]||''),q.correct+') '+(q.options[q.correct]||q.answer||''),q.isCorrect?'Правильно':'Неправильно',q.category||'']);});
  var csv='\uFEFF'+rows.map(function(row){return row.map(function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}).join(';');}).join('\r\n');
  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='test_otvt_'+a.id+'.csv';document.body.appendChild(link);link.click();document.body.removeChild(link);URL.revokeObjectURL(url);
